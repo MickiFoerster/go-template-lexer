@@ -17,15 +17,15 @@ const (
 	itemError itemType = iota
 	itemDot
 	itemEOF
-	itemElse
-	itemEnd
 	itemField
 	itemIdentifier
-	itemIf
 	itemLeftMeta
+	itemRightMeta
+	itemPipe
 
 	leftMeta  = "{{"
 	rightMeta = "}}"
+	eof       = 0
 )
 
 func (i item) String() string {
@@ -172,6 +172,18 @@ func (l *lexer) errorf(format string, args ...interface{}) stateFn {
 	return nil
 }
 
+func lexQuote(l *lexer) stateFn {
+	l.pos += 1
+	l.emit(itemQuote)
+	return lexInsideQuote // Now outside " ... "
+}
+
+func lexRightMeta(l *lexer) stateFn {
+	l.pos += len(rightMeta)
+	l.emit(itemRightMeta)
+	return lexText // Now outside {{  }}
+}
+
 func lexLeftMeta(l *lexer) stateFn {
 	l.pos += len(leftMeta)
 	l.emit(itemLeftMeta)
@@ -196,6 +208,26 @@ func lexText(l *lexer) stateFn {
 	}
 	l.emit(itemEOF)
 	return nil
+}
+
+func isSpace(rune int) bool {
+	if rune == ' ' {
+		return true
+	}
+	return false
+}
+
+func isAlphaNumeric(rune int) bool {
+	switch {
+	case 'a' <= rune && rune <= 'z':
+		return true
+	case 'A' <= rune && rune <= 'Z':
+		return true
+	case '0' <= rune && rune <= '9':
+		return true
+	default:
+		return false
+	}
 }
 
 func main() {
