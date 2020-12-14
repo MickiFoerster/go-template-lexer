@@ -18,10 +18,11 @@ const (
 	itemDot
 	itemEOF
 	itemField
-	itemIdentifier
 	itemLeftMeta
 	itemRightMeta
 	itemPipe
+	itemText
+	itemNumber
 
 	leftMeta  = "{{"
 	rightMeta = "}}"
@@ -74,6 +75,20 @@ func (l *lexer) emit(t itemType) {
 	l.start = l.pos
 }
 
+func lexIdentifier(l *lexer) stateFn {
+	for {
+		switch r := l.next(); {
+		case r == eof:
+			return l.errorf("unclosed action")
+		case isAlphaNumeric(r) || r == '_':
+			continue
+		default:
+			l.backup()
+			return lexInsideAction
+		}
+	}
+}
+
 func lexInsideAction(l *lexer) stateFn {
 	for {
 		if strings.HasPrefix(l.input[l.pos:], rightMeta) {
@@ -100,15 +115,17 @@ func lexInsideAction(l *lexer) stateFn {
 	}
 }
 
-func (l *lexer) next() (rune int) {
+func (l *lexer) next() int {
 	if l.pos >= len(l.input) {
 		l.width = 0
 		return eof
 	}
-	rune, l.width = utf8.DecodeRuneInString(l.input[l.pos:])
+	var r rune
+	r, l.width = utf8.DecodeRuneInString(l.input[l.pos:])
+	i := int(r)
 	l.pos += l.width
 
-	return rune
+	return i
 }
 
 func (l *lexer) ignore() {
@@ -126,15 +143,15 @@ func (l *lexer) peek() int {
 }
 
 func (l *lexer) accept(valid string) bool {
-	if strings.IndexRune(valid, l.next()) >= 0 {
+	if strings.IndexRune(valid, rune(l.next())) >= 0 {
 		return true
 	}
 	l.backup()
 	return false
 }
 
-func (l *lexer) acceptRun(valid string) bool {
-	for strings.IndexRune(valid, l.next()) >= 0 {
+func (l *lexer) acceptRun(valid string) {
+	for strings.IndexRune(valid, rune(l.next())) >= 0 {
 	}
 	l.backup()
 }
@@ -172,10 +189,32 @@ func (l *lexer) errorf(format string, args ...interface{}) stateFn {
 	return nil
 }
 
+func lexRawQuote(l *lexer) stateFn {
+	l.pos += 1
+	for {
+		switch r := l.next(); {
+		case r == eof:
+			return l.errorf("unclosed raw quote")
+		case r == '`':
+			return lexText
+		default:
+			continue
+		}
+	}
+}
+
 func lexQuote(l *lexer) stateFn {
 	l.pos += 1
-	l.emit(itemQuote)
-	return lexInsideQuote // Now outside " ... "
+	for {
+		switch r := l.next(); {
+		case r == eof:
+			return l.errorf("unclosed quote")
+		case r == '"':
+			return lexText
+		default:
+			continue
+		}
+	}
 }
 
 func lexRightMeta(l *lexer) stateFn {

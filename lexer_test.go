@@ -9,8 +9,10 @@ func TestisAlphaNumeric(t *testing.T) bool {
 	}
 
 	for _, t := range []test{
-		input:           'a',
-		expected_result: true,
+		{
+			input:           'a',
+			expected_result: true,
+		},
 	} {
 		res := isAlphaNumeric(t.input)
 		if res != t.expected_result {
