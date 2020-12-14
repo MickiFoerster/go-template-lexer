@@ -115,17 +115,16 @@ func lexInsideAction(l *lexer) stateFn {
 	}
 }
 
-func (l *lexer) next() int {
+func (l *lexer) next() rune {
 	if l.pos >= len(l.input) {
 		l.width = 0
 		return eof
 	}
 	var r rune
 	r, l.width = utf8.DecodeRuneInString(l.input[l.pos:])
-	i := int(r)
 	l.pos += l.width
 
-	return i
+	return r
 }
 
 func (l *lexer) ignore() {
@@ -136,7 +135,7 @@ func (l *lexer) backup() {
 	l.pos -= l.width
 }
 
-func (l *lexer) peek() int {
+func (l *lexer) peek() rune {
 	rune := l.next()
 	l.backup()
 	return rune
@@ -249,20 +248,20 @@ func lexText(l *lexer) stateFn {
 	return nil
 }
 
-func isSpace(rune int) bool {
-	if rune == ' ' {
+func isSpace(r rune) bool {
+	if r == ' ' {
 		return true
 	}
 	return false
 }
 
-func isAlphaNumeric(rune int) bool {
+func isAlphaNumeric(r rune) bool {
 	switch {
-	case 'a' <= rune && rune <= 'z':
+	case 'a' <= r && r <= 'z':
 		return true
-	case 'A' <= rune && rune <= 'Z':
+	case 'A' <= r && r <= 'Z':
 		return true
-	case '0' <= rune && rune <= '9':
+	case '0' <= r && r <= '9':
 		return true
 	default:
 		return false
