@@ -17,7 +17,8 @@ const (
 	itemError itemType = iota
 	itemDot
 	itemEOF
-	itemField
+	itemQuote
+	itemRawQuote
 	itemLeftMeta
 	itemRightMeta
 	itemPipe
@@ -36,19 +37,10 @@ func (i item) String() string {
 	case itemError:
 		return i.val
 	}
-	if len(i.val) > 10 {
+	if len(i.val) > 100 {
 		return fmt.Sprintf("%.10q...", i.val)
 	}
 	return fmt.Sprintf("%q", i.val)
-}
-
-type stateFn func(*lexer) stateFn
-
-func (l *lexer) run() {
-	for state := lexText; state != nil; {
-		state = state(l)
-	}
-	close(l.items)
 }
 
 type lexer struct {
@@ -58,6 +50,15 @@ type lexer struct {
 	pos   int
 	width int
 	items chan item
+}
+
+type stateFn func(*lexer) stateFn
+
+func (l *lexer) run() {
+	for state := lexText; state != nil; {
+		state = state(l)
+	}
+	close(l.items)
 }
 
 func lex(name, input string) (*lexer, chan item) {
@@ -195,7 +196,8 @@ func lexRawQuote(l *lexer) stateFn {
 		case r == eof:
 			return l.errorf("unclosed raw quote")
 		case r == '`':
-			return lexText
+			l.emit(itemRawQuote)
+			return lexInsideAction
 		default:
 			continue
 		}
@@ -209,7 +211,8 @@ func lexQuote(l *lexer) stateFn {
 		case r == eof:
 			return l.errorf("unclosed quote")
 		case r == '"':
-			return lexText
+			l.emit(itemQuote)
+			return lexInsideAction
 		default:
 			continue
 		}
@@ -269,5 +272,8 @@ func isAlphaNumeric(r rune) bool {
 }
 
 func main() {
-	fmt.Println("vim-go")
+	_, tokens := lex("mylexer", `Pi has the value {{"This is a quote" 3.14}} and e is {{2.7281}}`)
+	for t := range tokens {
+		fmt.Printf("lexer delivered token: %v\n", t)
+	}
 }
